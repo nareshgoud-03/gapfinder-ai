@@ -1,9 +1,20 @@
 /**
- * Robust PDF text extractor that works in both local dev and Vercel serverless.
- * Uses multiple strategies in order of preference.
+ * Robust PDF text extractor using pdfjs-dist (Mozilla PDF.js) as primary.
+ * Falls back to pdf-parse and finally regex extraction.
+ * Works in Node.js, Vercel serverless, and edge environments.
  */
 export async function extractTextFromPdf(buffer: Buffer): Promise<string> {
-  // Strategy 1: Try pdf-parse v2 (PDFParse class)
+  // Strategy 1: pdfjs-dist (Mozilla PDF.js) — pure JS, works on all serverless platforms
+  try {
+    const text = await extractWithPdfjs(buffer);
+    if (text && text.trim().length > 20) {
+      return text.trim();
+    }
+  } catch (err) {
+    console.warn('pdfjs-dist extraction failed:', err);
+  }
+
+  // Strategy 2: pdf-parse v2 (PDFParse class)
   try {
     const pdfModule = await import('pdf-parse') as any;
     if (pdfModule.PDFParse) {
@@ -20,10 +31,10 @@ export async function extractTextFromPdf(buffer: Buffer): Promise<string> {
       }
     }
   } catch {
-    // fall through to next strategy
+    // fall through
   }
 
-  // Strategy 2: Try pdf-parse v1 (default export as function)
+  // Strategy 3: pdf-parse v1 (default export as function)
   try {
     const pdfModule = await import('pdf-parse') as any;
     const pdfFn = typeof pdfModule === 'function'
@@ -31,7 +42,6 @@ export async function extractTextFromPdf(buffer: Buffer): Promise<string> {
       : typeof pdfModule.default === 'function'
       ? pdfModule.default
       : null;
-
     if (pdfFn) {
       const res = await pdfFn(buffer);
       const text = (res.text || '').trim();
@@ -40,10 +50,10 @@ export async function extractTextFromPdf(buffer: Buffer): Promise<string> {
       }
     }
   } catch {
-    // fall through to next strategy
+    // fall through
   }
 
-  // Strategy 3: Pure JS regex-based extraction (works always, no native deps)
+  // Strategy 4: Pure regex fallback
   try {
     return extractTextViaRegex(buffer);
   } catch {
@@ -52,18 +62,53 @@ export async function extractTextFromPdf(buffer: Buffer): Promise<string> {
 }
 
 /**
+ * Extract text from PDF using pdfjs-dist (Mozilla PDF.js).
+ * This is a pure JavaScript PDF parser — no native binaries needed.
+ */
+async function extractWithPdfjs(buffer: Buffer): Promise<string> {
+  // Use legacy build to avoid canvas/DOM requirements in Node
+  const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs' as any) as any;
+
+  // Disable worker for Node.js serverless environments
+  if (pdfjsLib.GlobalWorkerOptions) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = '';
+  }
+
+  const uint8Array = new Uint8Array(buffer);
+  const loadingTask = pdfjsLib.getDocument({
+    data: uint8Array,
+    // Suppress password-protected PDF errors gracefully
+    verbosity: 0,
+  });
+
+  const pdf = await loadingTask.promise;
+  const pageTexts: string[] = [];
+
+  for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+    const page = await pdf.getPage(pageNum);
+    const textContent = await page.getTextContent();
+    const pageText = textContent.items
+      .map((item: any) => ('str' in item ? item.str : ''))
+      .join(' ');
+    if (pageText.trim()) {
+      pageTexts.push(pageText.trim());
+    }
+  }
+
+  return pageTexts.join('\n\n');
+}
+
+/**
  * Fallback pure-JS PDF text extractor using regex on raw binary content.
- * Extracts Tj/TJ PDF operator text without any native dependencies.
+ * Works without any native dependencies but handles fewer PDF formats.
  */
 function extractTextViaRegex(buffer: Buffer): string {
   const content = buffer.toString('latin1');
   const lines: string[] = [];
 
-  // Match BT...ET text blocks
   const btBlocks = content.match(/BT[\s\S]*?ET/g) || [];
 
   for (const block of btBlocks) {
-    // Match (text)Tj, (text)TJ, [(text)]TJ
     const tjMatches = block.match(/\(([^)]*)\)\s*T[jJ]/g) || [];
     for (const m of tjMatches) {
       const inner = m.replace(/^\(/, '').replace(/\)\s*T[jJ]$/, '');
@@ -75,40 +120,16 @@ function extractTextViaRegex(buffer: Buffer): string {
         .replace(/\\\(/g, '(')
         .replace(/\\\)/g, ')')
         .trim();
-      if (cleaned.length > 0) {
-        lines.push(cleaned);
-      }
+      if (cleaned.length > 0) lines.push(cleaned);
     }
 
-    // Match [(text1)(text2)]TJ arrays
     const arrayMatches = block.match(/\[([^\]]*)\]\s*TJ/g) || [];
     for (const arr of arrayMatches) {
       const parts = arr.match(/\(([^)]*)\)/g) || [];
-      const combined = parts
-        .map((p) => p.slice(1, -1))
-        .join('')
-        .trim();
-      if (combined.length > 0) {
-        lines.push(combined);
-      }
+      const combined = parts.map((p) => p.slice(1, -1)).join('').trim();
+      if (combined.length > 0) lines.push(combined);
     }
   }
 
-  // Also try plain text stream content if BT blocks gave nothing
-  if (lines.length === 0) {
-    const streamMatches = content.match(/stream\r?\n([\s\S]*?)\r?\nendstream/g) || [];
-    for (const stream of streamMatches) {
-      const inner = stream.replace(/^stream\r?\n/, '').replace(/\r?\nendstream$/, '');
-      // Only if it looks like printable text
-      const printable = inner.replace(/[^\x20-\x7E\n\r\t]/g, ' ').trim();
-      if (printable.length > 50) {
-        lines.push(printable.substring(0, 2000));
-      }
-    }
-  }
-
-  return lines
-    .join(' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+  return lines.join(' ').replace(/\s+/g, ' ').trim();
 }

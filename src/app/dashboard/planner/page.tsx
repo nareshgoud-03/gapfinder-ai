@@ -145,119 +145,137 @@ export default function RevisionPlannerPage() {
           </div>
 
           <div className="space-y-4">
-            {revisionPlan.tasks.map((task) => {
-              const isWeak = task.status === 'weak';
-              const isMedium = task.status === 'medium';
+            {revisionPlan.tasks.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-slate-200 p-10 text-center space-y-4">
+                <CalendarCheck2 className="w-12 h-12 text-slate-300 mx-auto" />
+                <h4 className="text-base font-bold text-slate-800">No Revision Schedule Available</h4>
+                <p className="text-xs text-slate-500 max-w-md mx-auto">
+                  Take a diagnostic quiz so GapFinder AI can identify your weak areas, or click &ldquo;Recalculate Schedule&rdquo; above to generate a roadmap across your curriculum topics.
+                </p>
+                <div className="flex items-center justify-center gap-3 pt-2">
+                  <Link
+                    href="/dashboard/quiz"
+                    className="px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs shadow-sm transition-colors"
+                  >
+                    Take Diagnostic Quiz
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              revisionPlan.tasks.map((task) => {
+                const isWeak = task.status === 'weak';
+                const isMedium = task.status === 'medium';
 
-              return (
-                <div
-                  key={task.id}
-                  className={`bg-white rounded-2xl border p-6 shadow-sm transition-all ${
-                    task.completed
-                      ? 'border-emerald-200 bg-emerald-50/20 opacity-80'
-                      : isWeak
-                      ? 'border-rose-200 bg-rose-50/10'
-                      : isMedium
-                      ? 'border-amber-200'
-                      : 'border-slate-200'
-                  }`}
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                    <div className="flex items-start gap-4">
-                      {/* Checkbox */}
-                      <button
-                        onClick={() => toggleRevisionTask(task.id)}
-                        className={`w-6 h-6 rounded-lg mt-0.5 flex items-center justify-center border transition-all ${
-                          task.completed
-                            ? 'bg-emerald-600 border-emerald-600 text-white'
-                            : 'border-slate-300 hover:border-brand-500 bg-white'
-                        }`}
-                        title="Toggle task completion"
-                      >
-                        {task.completed && <Check className="w-4 h-4 stroke-[3]" />}
-                      </button>
+                return (
+                  <div
+                    key={task.id}
+                    className={`bg-white rounded-2xl border p-6 shadow-sm transition-all ${
+                      task.completed
+                        ? 'border-emerald-200 bg-emerald-50/20 opacity-80'
+                        : isWeak
+                        ? 'border-rose-200 bg-rose-50/10'
+                        : isMedium
+                        ? 'border-amber-200'
+                        : 'border-slate-200'
+                    }`}
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                      <div className="flex items-start gap-4">
+                        {/* Checkbox */}
+                        <button
+                          onClick={() => toggleRevisionTask(task.id)}
+                          className={`w-6 h-6 rounded-lg mt-0.5 flex items-center justify-center border transition-all ${
+                            task.completed
+                              ? 'bg-emerald-600 border-emerald-600 text-white'
+                              : 'border-slate-300 hover:border-brand-500 bg-white'
+                          }`}
+                          title="Toggle task completion"
+                        >
+                          {task.completed && <Check className="w-4 h-4 stroke-[3]" />}
+                        </button>
 
-                      <div className="space-y-1.5">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-slate-900 text-white">
-                            Day {task.dayNumber}
-                          </span>
-                          <span
-                            className={`text-xs font-bold px-2 py-0.5 rounded-md ${
-                              isWeak
-                                ? 'bg-rose-100 text-rose-700'
-                                : isMedium
-                                ? 'bg-amber-100 text-amber-700'
-                                : 'bg-emerald-100 text-emerald-700'
+                        <div className="space-y-1.5">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-slate-900 text-white">
+                              Day {task.dayNumber}
+                            </span>
+                            <span
+                              className={`text-xs font-bold px-2 py-0.5 rounded-md ${
+                                isWeak
+                                  ? 'bg-rose-100 text-rose-700'
+                                  : isMedium
+                                  ? 'bg-amber-100 text-amber-700'
+                                  : 'bg-emerald-100 text-emerald-700'
+                              }`}
+                            >
+                              {task.status.toUpperCase()} GAP &bull; {task.priority} Priority
+                            </span>
+                            <span className="text-xs text-slate-400 font-medium">
+                              ⏱ {task.durationMinutes} min allocation
+                            </span>
+                          </div>
+
+                          <h4
+                            className={`text-base font-bold ${
+                              task.completed
+                                ? 'line-through text-slate-400'
+                                : 'text-slate-900'
                             }`}
                           >
-                            {task.status.toUpperCase()} GAP &bull; {task.priority} Priority
-                          </span>
-                          <span className="text-xs text-slate-400 font-medium">
-                            ⏱ {task.durationMinutes} min allocation
-                          </span>
+                            {task.topicName}
+                          </h4>
+                          <p className="text-xs text-slate-600 max-w-3xl leading-relaxed">
+                            🎯 <span className="font-semibold text-slate-800">Learning Goal:</span> {task.learningObjective}
+                          </p>
                         </div>
+                      </div>
 
-                        <h4
-                          className={`text-base font-bold ${
-                            task.completed
-                              ? 'line-through text-slate-400'
-                              : 'text-slate-900'
-                          }`}
+                      <div className="flex items-center gap-2 self-end sm:self-start">
+                        <Link
+                          href={`/dashboard/ai-tutor?topic=${encodeURIComponent(task.topicName)}`}
+                          className="px-3 py-1.5 text-xs font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 rounded-lg transition-colors"
                         >
-                          {task.topicName}
-                        </h4>
-                        <p className="text-xs text-slate-600 max-w-3xl leading-relaxed">
-                          🎯 <span className="font-semibold text-slate-800">Learning Goal:</span> {task.learningObjective}
-                        </p>
+                          Ask AI Tutor
+                        </Link>
+                        <Link
+                          href={`/dashboard/quiz?topicId=${task.topicId}`}
+                          className="px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+                        >
+                          Retest Topic
+                        </Link>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 self-end sm:self-start">
-                      <Link
-                        href={`/dashboard/ai-tutor?topic=${encodeURIComponent(task.topicName)}`}
-                        className="px-3 py-1.5 text-xs font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 rounded-lg transition-colors"
-                      >
-                        Ask AI Tutor
-                      </Link>
-                      <Link
-                        href={`/dashboard/quiz?topicId=${task.topicId}`}
-                        className="px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
-                      >
-                        Retest Topic
-                      </Link>
+                    {/* Grounded Source Sections & Practice Steps */}
+                    <div className="mt-4 pt-4 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                      <div>
+                        <span className="font-bold text-slate-700 text-[11px] block mb-1">
+                          📖 Targeted Source Sections to Review:
+                        </span>
+                        <ul className="list-disc list-inside space-y-0.5 text-slate-600">
+                          {task.sourceSections.map((sec, i) => (
+                            <li key={i} className="truncate">
+                              {sec}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      <div>
+                        <span className="font-bold text-slate-700 text-[11px] block mb-1">
+                          ✏️ Prescribed Practice Tasks:
+                        </span>
+                        <ul className="list-disc list-inside space-y-0.5 text-slate-600">
+                          {task.practiceItems.map((item, i) => (
+                            <li key={i}>{item}</li>
+                          ))}
+                        </ul>
+                      </div>
                     </div>
                   </div>
-
-                  {/* Grounded Source Sections & Practice Steps */}
-                  <div className="mt-4 pt-4 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                    <div>
-                      <span className="font-bold text-slate-700 text-[11px] block mb-1">
-                        📖 Targeted Source Sections to Review:
-                      </span>
-                      <ul className="list-disc list-inside space-y-0.5 text-slate-600">
-                        {task.sourceSections.map((sec, i) => (
-                          <li key={i} className="truncate">
-                            {sec}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-
-                    <div>
-                      <span className="font-bold text-slate-700 text-[11px] block mb-1">
-                        ✏️ Prescribed Practice Tasks:
-                      </span>
-                      <ul className="list-disc list-inside space-y-0.5 text-slate-600">
-                        {task.practiceItems.map((item, i) => (
-                          <li key={i}>{item}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
         </div>
       </main>

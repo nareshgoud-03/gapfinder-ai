@@ -56,15 +56,19 @@ function AITutorContent() {
     setIsLoading(true);
 
     try {
+      const selectedTopicObj =
+        selectedTopic === 'all'
+          ? undefined
+          : topics.find((topic) => topic.id === selectedTopic || topic.name === selectedTopic);
+
       const res = await fetch('/api/tutor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           query: queryToSend,
-          topicFilter:
-            selectedTopic === 'all'
-              ? undefined
-              : topics.find((topic) => topic.id === selectedTopic || topic.name === selectedTopic)?.id,
+          topicFilter: selectedTopicObj?.id,
+          topicName: selectedTopicObj?.name,
+          syllabusTopics: topics.map((t) => t.name),
         }),
       });
 

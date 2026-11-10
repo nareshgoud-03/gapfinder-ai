@@ -4,15 +4,19 @@ import { askGroundedTutor } from '@/lib/ai/tutor';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { query, topicFilter } = body;
+    const { query, topicFilter, topicName, syllabusTopics } = body;
 
     if (!query || typeof query !== 'string' || query.trim().length === 0) {
       return NextResponse.json({ error: 'Query is required' }, { status: 400 });
     }
 
-    const result = await askGroundedTutor(query.trim(), topicFilter);
+    const result = await askGroundedTutor(
+      query.trim(),
+      topicFilter,
+      topicName,
+      syllabusTopics
+    );
 
-    // Always return 200 — the UI reads isGroundingSufficient to decide guardrail display
     return NextResponse.json({
       answer: result.answer,
       citations: result.citations,

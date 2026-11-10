@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   CalendarCheck2,
@@ -25,6 +25,13 @@ export default function RevisionPlannerPage() {
   const [hours, setHours] = useState(revisionPlan.hoursPerDay || 2);
   const [examDate, setExamDate] = useState(revisionPlan.targetExamDate || '2026-03-15');
   const [isSavedNotice, setIsSavedNotice] = useState(false);
+
+  // Auto-generate roadmap if tasks are empty
+  useEffect(() => {
+    if (!revisionPlan.tasks || revisionPlan.tasks.length === 0) {
+      reconfigureRevisionPlan(days, hours, examDate);
+    }
+  }, [revisionPlan.tasks, days, hours, examDate, reconfigureRevisionPlan]);
 
   const handleApplyConfig = (e: React.FormEvent) => {
     e.preventDefault();

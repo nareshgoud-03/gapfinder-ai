@@ -71,8 +71,25 @@ export default function TopicMapPage() {
         </div>
 
         {/* Chapters and Topics Tree */}
-        <div className="space-y-6">
-          {Object.entries(chapters).map(([chapterTitle, chapterTopics]) => {
+        {topics.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-500 space-y-3">
+            <Network className="w-10 h-10 text-slate-300 mx-auto" />
+            <h4 className="font-bold text-slate-800 text-base">No Curriculum Topics Available</h4>
+            <p className="text-xs text-slate-400 max-w-sm mx-auto">
+              You haven&apos;t uploaded any syllabus or textbook files yet. Upload materials to automatically construct your topic hierarchy.
+            </p>
+            <div className="pt-2">
+              <Link
+                href="/dashboard/materials"
+                className="px-4 py-2 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-xl transition-colors"
+              >
+                Upload Syllabus or Notes
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {Object.entries(chapters).map(([chapterTitle, chapterTopics]) => {
             const isExpanded = expandedChapters[chapterTitle] !== false;
 
             return (
@@ -202,6 +219,7 @@ export default function TopicMapPage() {
             );
           })}
         </div>
+        )}
       </main>
     </div>
   );

@@ -23,7 +23,7 @@ import {
 import { analyzeKnowledgeGaps } from './ai/gapAnalyzer';
 import { generateAdaptiveRevisionPlan } from './ai/planner';
 
-const STORAGE_KEY_PREFIX = 'gapfinder_ai_state_v1';
+const STORAGE_KEY_PREFIX = 'gapfinder_ai_state_v2';
 
 export interface AppState {
   profile: StudentProfile;
@@ -50,7 +50,7 @@ export function useAppState() {
       id: 'msg-init-1',
       role: 'assistant',
       content:
-        'Hello Aarav! I am your GapFinder AI Tutor. I answer questions and explain concepts using only your uploaded syllabus, textbooks, and past exam papers with precise citations. Which topic or chapter would you like to review?',
+        'Hello! I am your GapFinder AI Tutor. I answer questions and explain concepts using only your uploaded syllabus, textbooks, and past exam papers with precise citations. Which topic or chapter would you like to review?',
       timestamp: '2026-11-09T18:46:00Z',
       isGroundingSufficient: true,
       citations: [
@@ -172,15 +172,114 @@ export function useAppState() {
     [gapReport, profile.id, topics]
   );
 
-  // Add document
-  const addDocument = useCallback((doc: DocumentMeta) => {
-    setDocuments((prev) => [doc, ...prev]);
-  }, []);
+  // Add document (with optional extracted topics & questions)
+  const addDocument = useCallback(
+    (doc: DocumentMeta, newTopics?: Topic[], newQuestions?: Question[]) => {
+      setDocuments((prev) => [doc, ...prev]);
 
-  // Remove document
-  const removeDocument = useCallback((docId: string) => {
-    setDocuments((prev) => prev.filter((d) => d.id !== docId));
-  }, []);
+      if (newTopics && newTopics.length > 0) {
+        setTopics((prev) => {
+          const existingIds = new Set(prev.map((t) => t.id));
+          const toAdd = newTopics.filter((t) => !existingIds.has(t.id));
+          return [...prev, ...toAdd];
+        });
+      }
+
+      if (newQuestions && newQuestions.length > 0) {
+        setQuestions((prev) => {
+          const existingIds = new Set(prev.map((q) => q.id));
+          const toAdd = newQuestions.filter((q) => !existingIds.has(q.id));
+          return [...toAdd, ...prev];
+        });
+      }
+    },
+    []
+  );
+
+  // Cascading Remove Document
+  // 1. Removes document from backend chunk memory
+  // 2. Removes questions and topics sourced from this document
+  // 3. Recalculates gaps and revision schedule
+  const removeDocument = useCallback(
+    (docId: string) => {
+      // Find document to know its name
+      const targetDoc = documents.find((d) => d.id === docId);
+      const docName = targetDoc ? targetDoc.name : '';
+
+      // Call backend to purge chunks from retriever memory
+      fetch('/api/upload', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ docId }),
+      }).catch((e) => console.warn('Failed to delete backend memory chunks:', e));
+
+      const remainingDocs = documents.filter((d) => d.id !== docId);
+      setDocuments(remainingDocs);
+
+      if (remainingDocs.length === 0) {
+        // All documents deleted! Wipe questions and topics completely!
+        setQuestions([]);
+        setTopics([]);
+        setGapReport([]);
+        setRevisionPlan((prev) => ({ ...prev, tasks: [] }));
+        return;
+      }
+
+      // Filter questions sourced from this deleted document
+      const remainingQuestions = questions.filter(
+        (q) => q.sourceDocument !== docName && !q.id.includes(docId)
+      );
+      setQuestions(remainingQuestions);
+
+      // Filter topics that have no remaining questions and were generated for this doc
+      const remainingTopics = topics.filter(
+        (t) =>
+          !t.id.includes(docId) &&
+          (remainingQuestions.some((q) => q.topicId === t.id) ||
+            remainingDocs.some((d) => t.sourceCitation.includes(d.name)))
+      );
+      setTopics(remainingTopics);
+
+      // Recalculate gap report for remaining topics
+      const updatedGaps = analyzeKnowledgeGaps(quizAttempts, remainingTopics);
+      setGapReport(updatedGaps);
+
+      // Recalculate revision plan
+      const updatedPlan = generateAdaptiveRevisionPlan(
+        updatedGaps,
+        {
+          availableDays: revisionPlan.availableDays,
+          hoursPerDay: revisionPlan.hoursPerDay,
+          targetExamDate: revisionPlan.targetExamDate,
+          userId: profile.id,
+        },
+        remainingTopics
+      );
+      setRevisionPlan(updatedPlan);
+    },
+    [documents, questions, topics, quizAttempts, revisionPlan, profile.id]
+  );
+
+  // Clear all data (blank slate)
+  const clearAllData = useCallback(() => {
+    setDocuments([]);
+    setTopics([]);
+    setQuestions([]);
+    setQuizAttempts([]);
+    setGapReport([]);
+    setRevisionPlan({
+      id: `plan-${Date.now()}`,
+      userId: profile.id,
+      createdAt: new Date().toISOString(),
+      availableDays: 5,
+      hoursPerDay: 2,
+      targetExamDate: '2026-03-15',
+      totalStudyHours: 10,
+      tasks: [],
+    });
+    setChatHistory([]);
+    localStorage.removeItem(STORAGE_KEY_PREFIX);
+  }, [profile.id]);
 
   // Add chat message
   const addChatMessage = useCallback((msg: ChatMessage) => {
@@ -206,6 +305,7 @@ export function useAppState() {
     documents,
     addDocument,
     removeDocument,
+    clearAllData,
     topics,
     questions,
     quizAttempts,

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { chunkDocumentText } from '@/lib/rag/chunker';
-import { addMemoryChunks } from '@/lib/rag/retriever';
+import { addMemoryChunks, removeMemoryChunks } from '@/lib/rag/retriever';
+import { extractTopicsAndQuestionsFromText } from '@/lib/ai/documentAnalyzer';
 import { DocumentMeta, DocumentType } from '@/types';
 
-// Pure JS PDF text extraction or text parsing
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
@@ -22,8 +22,6 @@ export async function POST(req: NextRequest) {
 
     if (docName.toLowerCase().endsWith('.pdf')) {
       try {
-        // Dynamic import pdf-parse
-        // Note: pdf-parse expects a buffer
         const pdfModule = await import('pdf-parse');
         const pdfParse = ((pdfModule as unknown as { default?: (buf: Buffer) => Promise<{ text: string }> }).default || pdfModule) as (buf: Buffer) => Promise<{ text: string }>;
         const pdfData = await pdfParse(buffer);
@@ -52,6 +50,14 @@ export async function POST(req: NextRequest) {
     // Store in retriever memory
     addMemoryChunks(chunks);
 
+    // Dynamically extract topics and initial diagnostic questions from this document
+    const extractedData = await extractTopicsAndQuestionsFromText(
+      docId,
+      docName,
+      chunks,
+      extractedText
+    );
+
     const docMeta: DocumentMeta = {
       id: docId,
       name: docName,
@@ -60,7 +66,7 @@ export async function POST(req: NextRequest) {
       fileSize,
       chunkCount: chunks.length,
       status: 'ready',
-      summary: `Parsed ${chunks.length} semantically indexed chunks from ${docName}.`,
+      summary: `Parsed ${chunks.length} chunks. Extracted ${extractedData.topics.length} topics and ${extractedData.questions.length} questions.`,
       extractedTextLength: extractedText.length,
     };
 
@@ -69,6 +75,8 @@ export async function POST(req: NextRequest) {
       document: docMeta,
       chunksCount: chunks.length,
       sampleCitation: chunks[0]?.sectionCitation || 'General Section',
+      extractedTopics: extractedData.topics,
+      generatedQuestions: extractedData.questions,
     });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : 'Internal server error while processing document';
@@ -77,5 +85,23 @@ export async function POST(req: NextRequest) {
       { error: msg },
       { status: 500 }
     );
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const { docId } = await req.json();
+
+    if (!docId) {
+      return NextResponse.json({ error: 'docId is required' }, { status: 400 });
+    }
+
+    // Remove document chunks from retriever memory
+    removeMemoryChunks(docId);
+
+    return NextResponse.json({ success: true, deletedDocId: docId });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : 'Failed to delete document';
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

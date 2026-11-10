@@ -17,7 +17,7 @@ import { useAppState } from '@/lib/store';
 import { DocumentMeta, DocumentType } from '@/types';
 
 export default function MaterialsUploadPage() {
-  const { documents, addDocument, removeDocument, resetToDemo } = useAppState();
+  const { documents, addDocument, removeDocument, clearAllData, resetToDemo } = useAppState();
 
   const [selectedType, setSelectedType] = useState<DocumentType>('textbook');
   const [isUploading, setIsUploading] = useState(false);
@@ -49,8 +49,10 @@ export default function MaterialsUploadPage() {
         throw new Error(data.error || 'Failed to process document');
       }
 
-      addDocument(data.document);
-      setUploadMessage(`Successfully parsed ${data.chunksCount} chunks from "${file.name}"!`);
+      addDocument(data.document, data.extractedTopics, data.generatedQuestions);
+      setUploadMessage(
+        `Successfully parsed "${file.name}"! Indexed ${data.chunksCount} chunks and extracted ${data.extractedTopics?.length || 0} topics.`
+      );
       setTimeout(() => setUploadMessage(null), 4000);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Error uploading document.';
@@ -158,19 +160,42 @@ export default function MaterialsUploadPage() {
               </p>
             </div>
 
-            <button
-              onClick={() => {
-                resetToDemo();
-                window.location.reload();
-              }}
-              className="text-xs font-semibold text-slate-600 hover:text-slate-900 flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50"
-            >
-              <RefreshCw className="w-3.5 h-3.5 text-slate-400" />
-              <span>Reload Seed Documents</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  if (confirm('Clear all indexed documents and questions to start from a blank canvas?')) {
+                    clearAllData();
+                  }
+                }}
+                className="text-xs font-semibold text-rose-600 hover:text-rose-700 flex items-center gap-1 px-3 py-1.5 rounded-lg border border-rose-200 hover:bg-rose-50"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Clear All Materials</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  resetToDemo();
+                  window.location.reload();
+                }}
+                className="text-xs font-semibold text-slate-600 hover:text-slate-900 flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50"
+              >
+                <RefreshCw className="w-3.5 h-3.5 text-slate-400" />
+                <span>Reload Seed Documents</span>
+              </button>
+            </div>
           </div>
 
-          <div className="divide-y divide-slate-100">
+          {documents.length === 0 ? (
+            <div className="p-12 text-center text-slate-500 space-y-2">
+              <FileText className="w-10 h-10 text-slate-300 mx-auto" />
+              <p className="font-semibold text-slate-700 text-sm">No study documents indexed yet</p>
+              <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                Upload your syllabus PDF or textbook notes above, or click &ldquo;Reload Seed Documents&rdquo; to load the demo curriculum.
+              </p>
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100">
             {documents.map((doc) => (
               <div
                 key={doc.id}
@@ -216,6 +241,7 @@ export default function MaterialsUploadPage() {
               </div>
             ))}
           </div>
+          )}
         </div>
       </main>
     </div>

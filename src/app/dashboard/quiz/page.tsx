@@ -118,7 +118,25 @@ function DiagnosticQuizContent() {
       />
 
       <main className="p-8 max-w-4xl mx-auto w-full">
-        {!isQuizStarted ? (
+        {questions.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-slate-200 p-10 shadow-sm text-center space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto">
+              <HelpCircle className="w-6 h-6" />
+            </div>
+            <h3 className="text-lg font-bold text-slate-800">No Diagnostic Questions Available</h3>
+            <p className="text-xs text-slate-500 max-w-md mx-auto">
+              All previous study files have been removed or no documents have been uploaded yet. Upload your syllabus or notes to generate fresh, grounded questions for your new curriculum.
+            </p>
+            <div className="flex items-center justify-center gap-3 pt-2">
+              <Link
+                href="/dashboard/materials"
+                className="px-5 py-2.5 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-xl transition-colors shadow-sm"
+              >
+                Upload Study Materials
+              </Link>
+            </div>
+          </div>
+        ) : !isQuizStarted ? (
           /* Quiz Setup Screen */
           <div className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm space-y-6">
             <div className="text-center max-w-lg mx-auto">

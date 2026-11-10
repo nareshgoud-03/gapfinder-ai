@@ -3,25 +3,43 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Sparkles, ArrowRight, ShieldCheck, UserCheck } from 'lucide-react';
+import { Sparkles, UserCheck, AlertCircle } from 'lucide-react';
 import { useAppState } from '@/lib/store';
+import { authenticateStudent } from '@/lib/supabase/auth';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { profile, setProfile } = useAppState();
+  const { setProfile } = useAppState();
 
   const [email, setEmail] = useState('student.demo@gapfinder.ai');
   const [password, setPassword] = useState('demo2026');
+  const [isLoading, setIsLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    router.push('/dashboard');
+    setIsLoading(true);
+    setAuthError(null);
+
+    const result = await authenticateStudent(email, password);
+    if (result.success && result.user) {
+      setProfile(result.user);
+      router.push('/dashboard');
+    } else {
+      setAuthError(result.error || 'Invalid credentials');
+      setIsLoading(false);
+    }
   };
 
-  const handleDemoLogin = () => {
+  const handleDemoLogin = async () => {
     setEmail('student.demo@gapfinder.ai');
     setPassword('demo2026');
-    router.push('/dashboard');
+    setIsLoading(true);
+    const result = await authenticateStudent('student.demo@gapfinder.ai', 'demo2026');
+    if (result.success && result.user) {
+      setProfile(result.user);
+      router.push('/dashboard');
+    }
   };
 
   return (
@@ -71,6 +89,13 @@ export default function LoginPage() {
               <span className="bg-white px-2 text-slate-400 font-semibold">Or use standard login</span>
             </div>
           </div>
+
+          {authError && (
+            <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{authError}</span>
+            </div>
+          )}
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>

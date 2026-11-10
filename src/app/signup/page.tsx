@@ -3,18 +3,33 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Sparkles, ArrowRight } from 'lucide-react';
+import { Sparkles, ArrowRight, AlertCircle } from 'lucide-react';
+import { useAppState } from '@/lib/store';
+import { registerStudent } from '@/lib/supabase/auth';
 
 export default function SignupPage() {
   const router = useRouter();
+  const { setProfile } = useAppState();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [targetExam, setTargetExam] = useState('Class 12 CBSE & JEE Mathematics');
+  const [isLoading, setIsLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
 
-  const handleSignup = (e: React.FormEvent) => {
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    router.push('/dashboard');
+    setIsLoading(true);
+    setAuthError(null);
+
+    const result = await registerStudent(email, password, name, targetExam);
+    if (result.success && result.user) {
+      setProfile(result.user);
+      router.push('/dashboard');
+    } else {
+      setAuthError(result.error || 'Registration failed');
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -36,6 +51,13 @@ export default function SignupPage() {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md px-4 sm:px-0">
         <div className="bg-white py-8 px-6 shadow-sm rounded-2xl border border-slate-200 sm:px-10 space-y-5">
+          {authError && (
+            <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{authError}</span>
+            </div>
+          )}
+
           <form onSubmit={handleSignup} className="space-y-4">
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">

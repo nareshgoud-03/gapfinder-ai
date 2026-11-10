@@ -19,6 +19,14 @@ export function addMemoryChunks(chunks: DocumentChunk[]) {
   activeChunkStore = [...activeChunkStore, ...chunks];
 }
 
+export function removeMemoryChunks(docId: string) {
+  activeChunkStore = activeChunkStore.filter((chunk) => chunk.docId !== docId);
+}
+
+export function clearMemoryChunks() {
+  activeChunkStore = [];
+}
+
 export function getMemoryChunks(): DocumentChunk[] {
   return activeChunkStore;
 }

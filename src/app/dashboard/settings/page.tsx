@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { useAppState } from '@/lib/store';
+import { isSupabaseConfigured } from '@/lib/supabase/client';
 
 export default function SettingsPage() {
   const { profile, setProfile, resetToDemo } = useAppState();
@@ -150,15 +151,37 @@ export default function SettingsPage() {
             </div>
 
             <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80">
-              <div className="font-bold text-slate-900 mb-1">Supabase pgvector</div>
+              <div className="font-bold text-slate-900 mb-1">Supabase pgvector & SQL</div>
               <p className="text-slate-500 text-[11px] mb-2">
                 Cloud PostgreSQL with vector similarity RPC and RLS policies.
               </p>
-              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                Schema & In-Memory Sync
+              <span className={`inline-flex items-center gap-1 text-[11px] font-semibold ${
+                isSupabaseConfigured ? 'text-emerald-600' : 'text-amber-600'
+              }`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${isSupabaseConfigured ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                {isSupabaseConfigured ? 'Connected to Cloud Supabase' : 'Offline / Memory Sync Mode'}
               </span>
             </div>
+          </div>
+        </div>
+
+        {/* Supabase Free SQL Setup Card */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-3">
+          <div className="flex items-center gap-2">
+            <Database className="w-4 h-4 text-brand-600" />
+            <h3 className="font-bold text-slate-900 text-sm">Supabase Free Database & SQL Setup (Free Tier)</h3>
+          </div>
+          <p className="text-xs text-slate-600 leading-relaxed">
+            Supabase provides 100% free PostgreSQL databases with pgvector and user authentication. If you want to connect your live Supabase cloud database:
+          </p>
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs space-y-2 text-slate-700 font-mono">
+            <p>1. Create a free project at: <strong>https://supabase.com</strong></p>
+            <p>2. In your Supabase dashboard, click <strong>SQL Editor</strong> ➔ paste the contents of <strong>schema.sql</strong> (located in project root) ➔ Click <strong>Run</strong>.</p>
+            <p>3. In <strong>Project Settings ➔ API</strong>, copy your <strong>URL</strong> and <strong>anon public key</strong> into your <strong>.env.local</strong> file:</p>
+            <pre className="p-2.5 rounded bg-slate-900 text-emerald-400 overflow-x-auto text-[11px]">
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
+            </pre>
           </div>
         </div>
 

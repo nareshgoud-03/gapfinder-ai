@@ -99,9 +99,4 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// Allow larger file uploads (up to 10 MB)
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
+

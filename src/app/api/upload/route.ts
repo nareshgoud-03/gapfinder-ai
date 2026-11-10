@@ -22,21 +22,37 @@ export async function POST(req: NextRequest) {
 
     if (docName.toLowerCase().endsWith('.pdf')) {
       try {
-        const pdfModule = await import('pdf-parse');
-        const pdfParse = ((pdfModule as unknown as { default?: (buf: Buffer) => Promise<{ text: string }> }).default || pdfModule) as (buf: Buffer) => Promise<{ text: string }>;
-        const pdfData = await pdfParse(buffer);
-        extractedText = pdfData.text || '';
+        const pdfModule = await import('pdf-parse') as any;
+        if (pdfModule.PDFParse) {
+          const parser = new pdfModule.PDFParse({ data: buffer });
+          const res = await parser.getText();
+          if (res && typeof res.text === 'string' && res.text.trim()) {
+            extractedText = res.text;
+          } else if (res && Array.isArray(res.pages)) {
+            extractedText = res.pages.map((p: any) => p.text || '').join('\n\n');
+          }
+        } else if (typeof pdfModule === 'function') {
+          const res = await pdfModule(buffer);
+          extractedText = res.text || '';
+        } else if (typeof pdfModule.default === 'function') {
+          const res = await pdfModule.default(buffer);
+          extractedText = res.text || '';
+        }
       } catch (pdfErr) {
-        console.warn('PDF parser fallback to utf8 string extraction:', pdfErr);
-        extractedText = buffer.toString('utf-8').replace(/[^\x20-\x7E\n]/g, ' ');
+        console.error('PDF parsing error:', pdfErr);
+      }
+
+      // Safeguard: Ensure raw PDF bytecode is never treated as extracted document text
+      if (extractedText.startsWith('%PDF-') || extractedText.includes('<</Type/Catalog')) {
+        extractedText = '';
       }
     } else {
       extractedText = buffer.toString('utf-8');
     }
 
-    if (!extractedText.trim()) {
+    if (!extractedText.trim() || extractedText.trim().length < 20) {
       return NextResponse.json(
-        { error: 'Could not extract text from document. Please ensure it is not an image-only scanned PDF.' },
+        { error: 'Could not extract readable text from this document. Please ensure it contains selectable text (not scanned images).' },
         { status: 422 }
       );
     }

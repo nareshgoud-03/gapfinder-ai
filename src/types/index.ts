@@ -133,6 +133,7 @@ export interface ChatMessage {
   timestamp: string;
   citations?: Citation[];
   isGroundingSufficient: boolean;
+  provider?: string;
 }
 
 export interface StudentProfile {

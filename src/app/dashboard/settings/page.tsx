@@ -9,7 +9,7 @@ import {
   Key,
   Database,
   Check,
-  Sparkles,
+  LoaderCircle,
 } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { useAppState } from '@/lib/store';
@@ -23,6 +23,11 @@ export default function SettingsPage() {
   const [targetExam, setTargetExam] = useState(profile.targetExam);
   const [examDate, setExamDate] = useState(profile.examDate);
   const [saved, setSaved] = useState(false);
+  const [llmStatus, setLlmStatus] = useState<{
+    state: 'idle' | 'checking' | 'connected' | 'not-configured' | 'error';
+    message?: string;
+    model?: string;
+  }>({ state: 'idle' });
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,6 +40,35 @@ export default function SettingsPage() {
     });
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
+  };
+
+  const testLlmConnection = async () => {
+    setLlmStatus({ state: 'checking' });
+    try {
+      const response = await fetch('/api/llm/status', { method: 'POST' });
+      const result = await response.json();
+
+      if (result.connected) {
+        setLlmStatus({
+          state: 'connected',
+          model: result.model,
+          message: result.usedFallback
+            ? `Configured model unavailable; using ${result.model} instead.`
+            : undefined,
+        });
+      } else {
+        setLlmStatus({
+          state: result.configured ? 'error' : 'not-configured',
+          message: result.message,
+        });
+      }
+    } catch (error: unknown) {
+      console.error('LLM connection check failed:', error);
+      setLlmStatus({
+        state: 'error',
+        message: 'Could not reach the connection check. Verify the app server is running.',
+      });
+    }
   };
 
   return (
@@ -131,12 +165,50 @@ export default function SettingsPage() {
             <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80">
               <div className="font-bold text-slate-900 mb-1">Groq LLM Engine</div>
               <p className="text-slate-500 text-[11px] mb-2">
-                Fast context-grounded reasoning with Llama 3.3 70B.
+                Fast context-grounded reasoning with your configured Groq model.
               </p>
-              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                Active / Fallback Ready
+              <span className={`inline-flex items-center gap-1 text-[11px] font-semibold ${
+                llmStatus.state === 'connected'
+                  ? 'text-emerald-600'
+                  : llmStatus.state === 'checking'
+                  ? 'text-brand-600'
+                  : llmStatus.state === 'idle'
+                  ? 'text-slate-500'
+                  : 'text-amber-700'
+              }`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${
+                  llmStatus.state === 'connected'
+                    ? 'bg-emerald-500'
+                    : llmStatus.state === 'checking'
+                    ? 'bg-brand-500'
+                    : llmStatus.state === 'idle'
+                    ? 'bg-slate-400'
+                    : 'bg-amber-500'
+                }`} />
+                {llmStatus.state === 'connected'
+                  ? `Connected (${llmStatus.model})`
+                  : llmStatus.state === 'checking'
+                  ? 'Checking connection...'
+                  : llmStatus.state === 'not-configured'
+                  ? 'API key not configured'
+                  : llmStatus.state === 'error'
+                  ? 'Connection failed'
+                  : 'Connection not tested'}
               </span>
+              {llmStatus.message && (
+                <p role="status" className="text-amber-700 text-[11px] mt-1">
+                  {llmStatus.message}
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={testLlmConnection}
+                disabled={llmStatus.state === 'checking'}
+                className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-100 disabled:cursor-wait disabled:opacity-60"
+              >
+                {llmStatus.state === 'checking' && <LoaderCircle className="h-3 w-3 animate-spin" />}
+                {llmStatus.state === 'checking' ? 'Testing...' : 'Test connection'}
+              </button>
             </div>
 
             <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80">

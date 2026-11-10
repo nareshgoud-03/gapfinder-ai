@@ -14,6 +14,7 @@ import {
   Award,
   AlertTriangle,
   FileText,
+  RefreshCw,
 } from 'lucide-react';
 import { Header } from '@/components/layout/Header';
 import { useAppState } from '@/lib/store';
@@ -34,25 +35,72 @@ function DiagnosticQuizContent() {
   const [isQuizStarted, setIsQuizStarted] = useState(false);
   const [isQuizCompleted, setIsQuizCompleted] = useState(false);
   const [completedAttempt, setCompletedAttempt] = useState<QuizAttempt | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
 
-  // Initialize questions pool
-  const startQuiz = useCallback((length: number = quizLength, topicId: string = selectedTopicId) => {
+  // Initialize questions pool with live Groq / RAG AI generation
+  const startQuiz = useCallback(async (length: number = quizLength, topicId: string = selectedTopicId) => {
+    setIsGenerating(true);
+
+    try {
+      // Call live API to generate exact number of grounded questions using Groq / RAG
+      const res = await fetch('/api/quiz/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          topicId,
+          count: length,
+          topics,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.questions) && data.questions.length > 0) {
+          setActiveQuizQuestions(data.questions.slice(0, length));
+          setCurrentIndex(0);
+          setSelectedAnswers({});
+          setRevealedExplanations({});
+          setIsQuizStarted(true);
+          setIsQuizCompleted(false);
+          setCompletedAttempt(null);
+          setIsGenerating(false);
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn('API question generation fallback to local pool:', err);
+    }
+
+    // Reliable fallback: ensure exact requested `length` questions are provided
     let pool = [...questions];
     if (topicId && topicId !== 'all') {
-      pool = pool.filter((q) => q.topicId === topicId);
+      const topicMatches = pool.filter((q) => q.topicId === topicId);
+      if (topicMatches.length > 0) pool = topicMatches;
     }
-    // Shuffle pool
-    const shuffled = [...pool].sort(() => 0.5 - Math.random());
-    const selected = shuffled.slice(0, length);
 
-    setActiveQuizQuestions(selected);
+    const shuffled = [...pool].sort(() => 0.5 - Math.random());
+    const selected: Question[] = [];
+
+    // Loop until we reach the exact `length` requested by student
+    while (selected.length < length && pool.length > 0) {
+      for (const q of shuffled) {
+        if (selected.length >= length) break;
+        selected.push({
+          ...q,
+          id: `${q.id}-dup-${selected.length}`,
+        });
+      }
+    }
+
+    setActiveQuizQuestions(selected.slice(0, length));
     setCurrentIndex(0);
     setSelectedAnswers({});
     setRevealedExplanations({});
     setIsQuizStarted(true);
     setIsQuizCompleted(false);
     setCompletedAttempt(null);
-  }, [quizLength, selectedTopicId, questions]);
+    setIsGenerating(false);
+  }, [quizLength, selectedTopicId, questions, topics]);
 
   useEffect(() => {
     if (initialTopicId) {
@@ -192,11 +240,21 @@ function DiagnosticQuizContent() {
             </div>
 
             <button
+              disabled={isGenerating}
               onClick={() => startQuiz(quizLength, selectedTopicId)}
-              className="w-full py-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-sm transition-all shadow-md flex items-center justify-center gap-2"
+              className="w-full py-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 disabled:opacity-60 text-white font-semibold text-sm transition-all shadow-md flex items-center justify-center gap-2"
             >
-              <Sparkles className="w-4 h-4 text-brand-400" />
-              <span>Generate Diagnostic Questions</span>
+              {isGenerating ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin text-brand-400" />
+                  <span>Generating {quizLength} Grounded Questions with AI...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4 text-brand-400" />
+                  <span>Generate Diagnostic Questions ({quizLength} Questions)</span>
+                </>
+              )}
             </button>
           </div>
         ) : isQuizCompleted && completedAttempt ? (

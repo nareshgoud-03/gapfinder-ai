@@ -61,7 +61,10 @@ function AITutorContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           query: queryToSend,
-          topicFilter: selectedTopic !== 'all' ? selectedTopic : undefined,
+          topicFilter:
+            selectedTopic === 'all'
+              ? undefined
+              : topics.find((topic) => topic.id === selectedTopic || topic.name === selectedTopic)?.id,
         }),
       });
 
@@ -74,14 +77,16 @@ function AITutorContent() {
         timestamp: new Date().toISOString(),
         citations: data.citations || [],
         isGroundingSufficient: data.isGroundingSufficient !== false,
+        provider: typeof data.provider === 'string' ? data.provider : undefined,
       };
 
       addChatMessage(assistantMsg);
-    } catch {
+    } catch (err) {
+      console.error('Tutor fetch error:', err);
       const errorMsg: ChatMessage = {
         id: `msg-err-${Date.now()}`,
         role: 'assistant',
-        content: "I couldn't find sufficient information about this topic in your uploaded materials.",
+        content: "Network error — please check your connection and try again.",
         timestamp: new Date().toISOString(),
         isGroundingSufficient: false,
       };
@@ -115,9 +120,9 @@ function AITutorContent() {
           {topics.map((t) => (
             <button
               key={t.id}
-              onClick={() => setSelectedTopic(t.name)}
+              onClick={() => setSelectedTopic(t.id)}
               className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-colors ${
-                selectedTopic === t.name
+                selectedTopic === t.id || selectedTopic === t.name
                   ? 'bg-brand-600 text-white'
                   : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
               }`}
@@ -153,6 +158,12 @@ function AITutorContent() {
                   <div className="whitespace-pre-wrap leading-relaxed">
                     {msg.content}
                   </div>
+
+                  {!isUser && msg.provider && (
+                    <p className="text-[10px] text-slate-400">
+                      Response source: {msg.provider}
+                    </p>
+                  )}
 
                   {/* Citations container */}
                   {msg.citations && msg.citations.length > 0 && (

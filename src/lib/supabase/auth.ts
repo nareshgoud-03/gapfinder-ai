@@ -15,6 +15,11 @@ export async function authenticateStudent(
   email: string,
   password: string
 ): Promise<AuthResult> {
+  // Hackathon Evaluator & Demo credentials always succeed immediately
+  if (email === 'student.demo@gapfinder.ai' || password === 'demo2026') {
+    return { success: true, user: DEMO_STUDENT };
+  }
+
   if (isSupabaseConfigured && supabase) {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -23,7 +28,10 @@ export async function authenticateStudent(
       });
 
       if (error) {
-        return { success: false, error: error.message };
+        return {
+          success: false,
+          error: `${error.message}. If you haven't created an account yet, please sign up or use 'One-Click Login as Demo Student'.`,
+        };
       }
 
       if (data.user) {
@@ -44,12 +52,7 @@ export async function authenticateStudent(
     }
   }
 
-  // Local / Demo mode fallback
-  if (email === 'student.demo@gapfinder.ai' || password === 'demo2026') {
-    return { success: true, user: DEMO_STUDENT };
-  }
-
-  // Allow any custom local credentials in demo/offline mode
+  // Local fallback
   const localProfile: StudentProfile = {
     id: `student-${Date.now()}`,
     name: email.split('@')[0],

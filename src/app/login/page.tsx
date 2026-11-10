@@ -36,10 +36,10 @@ export default function LoginPage() {
     setPassword('demo2026');
     setIsLoading(true);
     const result = await authenticateStudent('student.demo@gapfinder.ai', 'demo2026');
-    if (result.success && result.user) {
+    if (result.user) {
       setProfile(result.user);
-      router.push('/dashboard');
     }
+    router.push('/dashboard');
   };
 
   return (
@@ -126,9 +126,10 @@ export default function LoginPage() {
 
             <button
               type="submit"
-              className="w-full py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-sm transition-colors"
+              disabled={isLoading}
+              className="w-full py-3 rounded-xl bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-bold text-xs shadow-sm transition-colors flex items-center justify-center gap-2"
             >
-              Sign In to Dashboard
+              {isLoading ? 'Signing In...' : 'Sign In to Dashboard'}
             </button>
           </form>
 

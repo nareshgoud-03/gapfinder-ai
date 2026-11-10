@@ -27,7 +27,7 @@ Most study tools and chatbots wait for the student to ask a question. **A studen
 |---|---|
 | **Frontend** | Next.js 14 (App Router), React 18, TypeScript, Tailwind CSS, Lucide React, Recharts |
 | **Styling & Design** | Modern EdTech SaaS design system inspired by Linear and Notion (Slate/Navy with Indigo/Purple accents) |
-| **AI LLM Inference** | Groq API (`llama-3.3-70b-versatile` / `llama-3.1-8b-instant`), Vercel AI SDK |
+| **AI LLM Inference** | Groq API (`openai/gpt-oss-20b`), Vercel AI SDK |
 | **Embeddings & Vector Search** | 384-dimensional dense semantic embeddings (`sentence-transformers/all-MiniLM-L6-v2` / Hugging Face Inference API / Local Cosine Vectorizer) |
 | **Document Processing** | `pdf-parse`, recursive sliding-window text chunker (600 characters with 120 character overlap) |
 | **Database & Auth** | Supabase PostgreSQL with `pgvector` extension, Row Level Security (RLS) policies |
@@ -98,7 +98,7 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 
 # Groq API (Free key from https://console.groq.com)
 GROQ_API_KEY=gsk_your_groq_api_key_here
-GROQ_MODEL=llama-3.3-70b-versatile
+GROQ_MODEL=openai/gpt-oss-20b
 
 # Hugging Face Embeddings (Optional)
 HUGGINGFACE_API_KEY=hf_your_huggingface_api_key_here
@@ -107,6 +107,9 @@ HUGGINGFACE_API_KEY=hf_your_huggingface_api_key_here
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
 ```
+
+After starting the app, open **Settings & System Configuration** and select **Test connection** to verify that the configured Groq key and model can reach the API. The key stays on the server and is never returned to the browser.
+If the preferred model is retired or unavailable, the app checks Groq's active model list and tries an available chat model automatically; Settings shows which model was selected.
 
 > **Note for Evaluators:** The application includes a self-contained offline grounded vector engine and pre-seeded curriculum dataset. It runs out-of-the-box even before external API keys are configured!
 
@@ -169,7 +172,7 @@ To enable Supabase cloud storage:
 4. Set the Framework Preset to **Next.js**.
 5. Add the Environment Variables:
    - `GROQ_API_KEY`: Your Groq API key
-   - `GROQ_MODEL`: `llama-3.3-70b-versatile`
+   - `GROQ_MODEL`: `openai/gpt-oss-20b`
    - `NEXT_PUBLIC_APP_URL`: Your Vercel production URL
    - `NEXT_PUBLIC_SUPABASE_URL`: (Optional)
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: (Optional)

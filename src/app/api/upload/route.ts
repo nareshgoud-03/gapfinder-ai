@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { chunkDocumentText } from '@/lib/rag/chunker';
 import { addMemoryChunks, removeMemoryChunks } from '@/lib/rag/retriever';
 import { extractTopicsAndQuestionsFromText } from '@/lib/ai/documentAnalyzer';
+import { extractTextFromPdf } from '@/lib/rag/pdfExtractor';
 import { DocumentMeta, DocumentType } from '@/types';
 
 export async function POST(req: NextRequest) {
@@ -21,38 +22,26 @@ export async function POST(req: NextRequest) {
     let extractedText = '';
 
     if (docName.toLowerCase().endsWith('.pdf')) {
-      try {
-        const pdfModule = await import('pdf-parse') as any;
-        if (pdfModule.PDFParse) {
-          const parser = new pdfModule.PDFParse({ data: buffer });
-          const res = await parser.getText();
-          if (res && typeof res.text === 'string' && res.text.trim()) {
-            extractedText = res.text;
-          } else if (res && Array.isArray(res.pages)) {
-            extractedText = res.pages.map((p: any) => p.text || '').join('\n\n');
-          }
-        } else if (typeof pdfModule === 'function') {
-          const res = await pdfModule(buffer);
-          extractedText = res.text || '';
-        } else if (typeof pdfModule.default === 'function') {
-          const res = await pdfModule.default(buffer);
-          extractedText = res.text || '';
-        }
-      } catch (pdfErr) {
-        console.error('PDF parsing error:', pdfErr);
-      }
-
-      // Safeguard: Ensure raw PDF bytecode is never treated as extracted document text
-      if (extractedText.startsWith('%PDF-') || extractedText.includes('<</Type/Catalog')) {
-        extractedText = '';
-      }
+      extractedText = await extractTextFromPdf(buffer);
     } else {
+      // TXT / plain text file
       extractedText = buffer.toString('utf-8');
+    }
+
+    // Strip leftover PDF bytecode noise
+    if (
+      extractedText.startsWith('%PDF-') ||
+      extractedText.includes('<</Type/Catalog')
+    ) {
+      extractedText = '';
     }
 
     if (!extractedText.trim() || extractedText.trim().length < 20) {
       return NextResponse.json(
-        { error: 'Could not extract readable text from this document. Please ensure it contains selectable text (not scanned images).' },
+        {
+          error:
+            'Could not extract readable text from this document. Please ensure it contains selectable text (not scanned images), or try uploading it as a .txt file.',
+        },
         { status: 422 }
       );
     }
@@ -95,29 +84,24 @@ export async function POST(req: NextRequest) {
       generatedQuestions: extractedData.questions,
     });
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : 'Internal server error while processing document';
+    const msg =
+      error instanceof Error
+        ? error.message
+        : 'Internal server error while processing document';
     console.error('Error handling document upload:', error);
     return NextResponse.json(
-      { error: msg },
+      {
+        error: `Upload processing failed: ${msg}`,
+        success: false,
+      },
       { status: 500 }
     );
   }
 }
 
-export async function DELETE(req: NextRequest) {
-  try {
-    const { docId } = await req.json();
-
-    if (!docId) {
-      return NextResponse.json({ error: 'docId is required' }, { status: 400 });
-    }
-
-    // Remove document chunks from retriever memory
-    removeMemoryChunks(docId);
-
-    return NextResponse.json({ success: true, deletedDocId: docId });
-  } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : 'Failed to delete document';
-    return NextResponse.json({ error: msg }, { status: 500 });
-  }
-}
+// Allow larger file uploads (up to 10 MB)
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
